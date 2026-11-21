@@ -38,12 +38,17 @@ double-clicking one file.
 ### The AppImage (nothing to install)
 
 Grab `DarkServe-<version>-x86_64.AppImage` (or `-aarch64` for ARM boards) from
-the releases page, then:
+the [Releases](../../releases) page, then:
 
 ```sh
 chmod +x DarkServe-*-x86_64.AppImage
 ./DarkServe-*-x86_64.AppImage
 ```
+
+The binaries are attached to a release rather than committed, because the
+x86_64 file is just over GitHub's 100 MiB limit for a tracked file. Running the
+*release* workflow (Actions → release → Run workflow) builds both architectures
+and attaches them; pushing a `v*` tag does the same thing.
 
 The first start asks you to create the admin account. On systems without
 `libfuse2` (Ubuntu 24.04 and newer) install `libfuse2t64` or run it with
