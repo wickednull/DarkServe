@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.darkserve.server</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>DarkServe</name>
+  <summary>Self-hosted media server for USB drives and local folders</summary>
+  <description>
+    <p>
+      DarkServe indexes the media on your USB drives and in your own folders
+      and serves it to any device on the network: movies, series, music and
+      live TV playlists, in a browser or cast to a TV.
+    </p>
+    <p>
+      It runs entirely on your own machine. No accounts, no cloud, no
+      tracking — just your files, streamed from your own hardware.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Automatic detection of USB drives, with a live file index</li>
+      <li>Movies and series with poster art and metadata lookup</li>
+      <li>Music library with album art</li>
+      <li>Live TV from M3U/M3U8 playlists</li>
+      <li>Downloads with yt-dlp, subtitles from OpenSubtitles</li>
+      <li>Compatibility streaming for older players (ffmpeg)</li>
+      <li>Casting to a TV, progress tracking, favourites</li>
+      <li>Multi-user accounts with an admin and regular users</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">darkserve.desktop</launchable>
+  <categories>
+    <category>AudioVideo</category>
+    <category>AudioVideo/Video</category>
+  </categories>
+  <url type="homepage">https://github.com/darkserve/darkserve</url>
+  <provides>
+    <binary>usr/bin/darkserve</binary>
+  </provides>
+  <releases>
+    <release version="@VERSION@"/>
+  </releases>
+</component>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>DarkServe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<meta name="theme-color" content="#06080d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DarkServe">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
+<link rel="stylesheet" href="/static/style.css?v=10">
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="scanline"></div>
+<div class="vignette"></div>
+
+<!-- Auth Screen -->
+<div id="login-screen" class="screen active">
+  <div class="auth-wrap">
+    <div class="login-box glass">
+      <div class="logo-mark">
+        <svg viewBox="0 0 64 64" width="56" height="56" class="ds-logo">
+          <polygon points="32,4 58,18 58,46 32,60 6,46 6,18" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+          <polygon points="32,14 49,23 49,41 32,50 15,41 15,23" fill="var(--accent-glow)" stroke="var(--accent)" stroke-width="1.5"/>
+          <path d="M25 26 L35 26 L29 33 L39 33" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h1 class="brand">DARK<span>SERVE</span></h1>
+      <p class="tagline">// YOUR MEDIA. YOUR RULES. //</p>
+
+      <div class="login-tabs">
+        <button class="tab-btn active" data-tab="login">Sign In</button>
+        <button class="tab-btn" data-tab="setup" id="tab-setup" style="display:none">First-Time Setup</button>
+      </div>
+
+      <form id="login-form" class="auth-form">
+        <div class="field">
+          <input type="text" id="login-username" placeholder=" " autocomplete="username" required>
+          <label>Username</label>
+        </div>
+        <div class="field">
+          <input type="password" id="login-password" placeholder=" " autocomplete="current-password" required>
+          <label>Password</label>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">ACCESS TERMINAL</button>
+      </form>
+
+      <form id="register-form" class="auth-form hidden">
+        <p class="setup-hint">Create the <strong>admin</strong> account.<br>This is offered once — only you control this server.</p>
+        <div class="field">
+          <input type="text" id="reg-username" placeholder=" " autocomplete="username" required>
+          <label>Admin Username</label>
+        </div>
+        <div class="field">
+          <input type="password" id="reg-password" placeholder=" " autocomplete="new-password" required>
+          <label>Password</label>
+        </div>
+        <div class="field">
+          <input type="password" id="reg-password2" placeholder=" " autocomplete="new-password" required>
+          <label>Confirm Password</label>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">INITIALIZE SERVER</button>
+      </form>
+
+      <div id="login-error" class="error-msg"></div>
+    </div>
+    <p class="auth-footer">DARKSERVE v0.3 // SELF-HOSTED MEDIA SERVER</p>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="main-screen" class="screen">
+  <div id="app">
+    <nav class="sidebar glass">
+      <div class="logo">
+        <svg viewBox="0 0 64 64" width="34" height="34">
+          <polygon points="32,4 58,18 58,46 32,60 6,46 6,18" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+          <path d="M25 26 L35 26 L29 33 L39 33" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="logo-text">DARK<span>SERVE</span></span>
+      </div>
+      <ul class="nav-links">
+        <li class="active" data-page="home"><span class="nav-ic">&#9631;</span> Home</li>
+        <li data-page="libraries"><span class="nav-ic">&#9635;</span> Libraries</li>
+        <li data-page="drives"><span class="nav-ic">USB</span> Drives</li>
+        <li data-page="upload"><span class="nav-ic">&#8679;</span> Upload</li>
+        <li data-page="downloads"><span class="nav-ic">&#8681;</span> Downloads</li>
+        <li data-page="duplicates"><span class="nav-ic">&#8789;</span> Duplicates</li>
+        <li data-page="iptv"><span class="nav-ic">&#9650;</span> IPTV</li>
+        <li data-page="search"><span class="nav-ic">&#8981;</span> Search</li>
+        <li data-page="settings" id="nav-admin1" style="display:none"><span class="nav-ic">&#9781;</span> Settings</li>
+        <li data-page="users" id="nav-admin2" style="display:none"><span class="nav-ic">&#9641;</span> Users</li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="user-chip">
+          <div class="avatar" id="user-avatar">?</div>
+          <div>
+            <div id="current-user" class="uname">—</div>
+            <div id="current-role" class="role-badge">—</div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-small" id="btn-logout" title="Sign out">Log out</button>
+      </div>
+    </nav>
+    <main class="content">
+      <header class="topbar glass">
+        <div class="title-wrap">
+          <h1 id="page-title">HOME</h1>
+          <p id="page-sub" class="page-sub"></p>
+        </div>
+        <div class="topbar-actions">
+          <span class="sys-stat" id="stat-drives">0 DRIVES</span>
+          <span class="sys-stat" id="stat-media">0 ITEMS</span>
+          <button class="btn btn-primary" id="btn-scan">SCAN ALL</button>
+        </div>
+      </header>
+      <div id="page-content" class="page-content">
+        <div class="loading">ESTABLISHING UPLINK…</div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Video Modal -->
+<div id="player-modal" class="modal hidden">
+  <div class="modal-inner">
+    <div class="modal-head">
+      <h2 id="player-title">Now playing</h2>
+      <span class="player-hint">SPACE play/pause · ← → 10s · ↑ ↓ volume · F fullscreen · M mute · ESC close</span>
+      <div class="spd-group">
+        <button class="btn btn-small spd-btn" data-act="speed" data-rate="1">1x</button>
+        <button class="btn btn-small spd-btn" data-act="speed" data-rate="1.5">1.5x</button>
+        <button class="btn btn-small spd-btn" data-act="speed" data-rate="2">2x</button>
+      </div>
+      <button class="btn btn-small hidden" id="player-compat">COMPATIBILITY STREAM</button>
+      <button class="btn btn-small hidden" id="player-next" data-act="next-ep">NEXT &#9654;</button>
+      <button class="btn btn-small cast-btn hidden" id="player-cast" onclick="startCast()">&#9654; CAST</button>
+      <span id="player-casting" class="casting-tag hidden">CASTING TO <span class="casting-name">TV</span> · <a href="#" onclick="stopCast();return false">STOP</a></span>
+      <button class="btn btn-ghost btn-small" id="player-full">FULLSCREEN</button>
+      <button class="btn btn-ghost" id="player-close">&times; CLOSE</button>
+    </div>
+    <div class="player-body">
+      <video id="player" controls playsinline></video>
+      <aside id="queue-panel" class="queue-panel"></aside>
+    </div>
+  </div>
+</div>
+
+<!-- Details -->
+<div id="detail-modal" class="modal hidden">
+  <div class="detail glass" id="detail-body"></div>
+</div>
+
+<!-- Shortcuts -->
+<div id="help-modal" class="modal hidden">
+  <div class="help glass">
+    <h2>KEYBOARD SHORTCUTS</h2>
+    <div class="help-grid">
+      <div><kbd>Space</kbd></div><div>Play / pause</div>
+      <div><kbd>&larr;</kbd> <kbd>&rarr;</kbd></div><div>Seek 10 seconds</div>
+      <div><kbd>&uarr;</kbd> <kbd>&darr;</kbd></div><div>Volume</div>
+      <div><kbd>F</kbd></div><div>Fullscreen</div>
+      <div><kbd>M</kbd></div><div>Mute</div>
+      <div><kbd>Esc</kbd></div><div>Close player / dialog</div>
+      <div><kbd>/</kbd></div><div>Jump to search</div>
+      <div><kbd>?</kbd></div><div>This list</div>
+    </div>
+    <button class="btn btn-primary" id="help-close">CLOSE</button>
+  </div>
+</div>
+
+<div id="toasts"></div>
+<script src="/static/hls.min.js?v=10"></script>
+<script src="/static/app.js?v=10"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/static/sw.js').catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

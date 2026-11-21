@@ -1,0 +1,48 @@
+name: build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "gofmt wants to reformat:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build the server
+        run: CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o darkserve ./cmd
+
+      - name: Check the web assets
+        run: node --check web/static/app.js
+
+      - name: Build an AppImage (no bundled tools, fast)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq squashfs-tools
+          ./packaging/build-appimage.sh --no-tools
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: darkserve-x86_64
+          path: dist/*.AppImage
+          retention-days: 7

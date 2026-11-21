@@ -1,0 +1,28 @@
+[Desktop Entry]
+Type=Application
+Name=DarkServe
+GenericName=Media Server
+Comment=Start, open or stop the DarkServe media server
+Exec=/home/null/Projects/darkserve/launcher/darkserve-control.sh
+Icon=/home/null/Projects/darkserve/launcher/darkserve.png
+Terminal=false
+Categories=AudioVideo;Player;
+Keywords=media;server;streaming;usb;movies;music;iptv;
+StartupNotify=true
+Actions=start;open;stop;kill;
+
+[Desktop Action start]
+Name=Start Server
+Exec=/home/null/Projects/darkserve/launcher/darkserve-control.sh --cli start
+
+[Desktop Action open]
+Name=Go To Server
+Exec=/home/null/Projects/darkserve/launcher/darkserve-control.sh --cli open
+
+[Desktop Action stop]
+Name=Stop Server
+Exec=/home/null/Projects/darkserve/launcher/darkserve-control.sh --cli stop
+
+[Desktop Action kill]
+Name=Kill Server
+Exec=/home/null/Projects/darkserve/launcher/darkserve-control.sh --cli kill

@@ -1,0 +1,293 @@
+#!/usr/bin/env bash
+# DarkServe AppImage entry point.
+#
+# Starts the server in the background and opens it in the browser. The server
+# keeps running after this script exits — it is stopped again from the
+# "Shut down server" button in the settings page, or with "--cli stop".
+#
+# Actions:
+#   (no argument)     start the server if needed, then open the browser
+#   --cli <action>    start | open | stop | kill | status | log
+#   --panel           the yad control panel (needs yad installed)
+set -u
+
+HERE="$(dirname "$(readlink -f "$0")")"
+APPIMAGE_VERSION="__DARKSERVE_VERSION__"
+
+PORT="${DARKSERVE_PORT:-7676}"
+URL="http://localhost:${PORT}"
+
+DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
+DATA_DIR="$DATA_HOME/darkserve"
+CACHE_DIR="$CACHE_HOME/darkserve"
+CONF_FILE="$DATA_DIR/darkserve.conf"
+PID_FILE="$DATA_DIR/darkserve.pid"
+LOG_FILE="$DATA_DIR/run.log"
+
+# The AppImage itself is read-only and is unmounted the moment this script
+# ends. A server that runs from that mount dies with it, so the server and
+# its tools are copied out into the data directory once. Everything after
+# that runs from there, independent of the AppImage.
+RUNTIME_DIR="$DATA_DIR/runtime"
+
+mkdir -p "$DATA_DIR" "$CACHE_DIR" || exit 1
+
+# ---------------------------------------------------------------- helpers ---
+
+log() { echo "DarkServe: $*"; }
+
+server_pid() {
+  [[ -f "$PID_FILE" ]] || return 1
+  local pid
+  pid="$(tr -dc '0-9' < "$PID_FILE" 2>/dev/null)"
+  [[ -n "$pid" ]] || return 1
+  [[ -d "/proc/$pid" ]] || return 1
+  echo "$pid"
+}
+
+running() { server_pid >/dev/null 2>&1; }
+
+# Copies the server out of the AppImage. It is small and needed right away,
+# so this happens before the server starts.
+copy_server() {
+  mkdir -p "$RUNTIME_DIR" || return 1
+  cp -f "$HERE/usr/bin/darkserve" "$RUNTIME_DIR/darkserve.new" 2>/dev/null || return 1
+  chmod 0755 "$RUNTIME_DIR/darkserve.new" || return 1
+  mv -f "$RUNTIME_DIR/darkserve.new" "$RUNTIME_DIR/darkserve"
+}
+
+# ffmpeg, ffprobe and yt-dlp are big, so they are copied while the server is
+# already up and the browser is already open. The copy runs in the
+# background, but this script waits for it: the AppImage is unmounted as
+# soon as this script ends, and the tools have to be out before that.
+copy_tools() {
+  local marker="$RUNTIME_DIR/.tools-version"
+  if [[ -f "$marker" && "$(cat "$marker" 2>/dev/null)" == "$APPIMAGE_VERSION" ]]; then
+    return 0
+  fi
+  mkdir -p "$RUNTIME_DIR" || return 1
+  (
+    local ok=1
+    for tool in ffmpeg ffprobe yt-dlp; do
+      [[ -f "$HERE/usr/bin/$tool" ]] || continue
+      cp -f "$HERE/usr/bin/$tool" "$RUNTIME_DIR/$tool.new" 2>/dev/null || { ok=0; continue; }
+      chmod 0755 "$RUNTIME_DIR/$tool.new" 2>/dev/null || { ok=0; continue; }
+      mv -f "$RUNTIME_DIR/$tool.new" "$RUNTIME_DIR/$tool" 2>/dev/null || ok=0
+    done
+    # Only mark it as done when everything was copied.
+    if [[ $ok -eq 1 ]]; then
+      echo "$APPIMAGE_VERSION" > "$marker" 2>/dev/null || true
+    fi
+  ) >/dev/null 2>&1 &
+  wait $!
+}
+
+# Writes the config file the server reads on boot. It keeps the data and
+# cache folders inside the user's home, so the AppImage itself stays read-only.
+write_conf() {
+  cat > "$CONF_FILE" <<EOF
+addr: ":${PORT}"
+data_dir: "${DATA_DIR}"
+cache_dir: "${CACHE_DIR}"
+EOF
+}
+
+# Waits until the server answers on its port.
+#
+# The file descriptor is opened in a subshell and on a high number on
+# purpose: inside an AppImage the low descriptors belong to the runtime
+# (fd 3 keeps the FUSE mount alive), and closing that one would take the
+# whole AppImage down with it.
+wait_ready() {
+  local i
+  for i in $(seq 1 150); do
+    if (exec 9<>"/dev/tcp/127.0.0.1/${PORT}") 2>/dev/null; then
+      return 0
+    fi
+    running || return 1
+    sleep 0.2
+  done
+  return 1
+}
+
+open_browser() {
+  if [[ -n "${BROWSER:-}" ]]; then
+    "$BROWSER" "$URL" >/dev/null 2>&1 &
+    return 0
+  fi
+  if command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$URL" >/dev/null 2>&1 &
+    return 0
+  fi
+  if command -v gio >/dev/null 2>&1; then
+    gio open "$URL" >/dev/null 2>&1 &
+    return 0
+  fi
+  return 1
+}
+
+# ---------------------------------------------------------------- actions ---
+
+do_start() {
+  if running; then
+    log "already running on ${URL}"
+    return 0
+  fi
+  write_conf
+  if ! copy_server; then
+    log "could not copy the server out of the AppImage"
+    return 1
+  fi
+  # The copied tools come first, the ones inside the AppImage are the backup.
+  export PATH="$RUNTIME_DIR:$HERE/usr/bin:$PATH"
+
+  "$RUNTIME_DIR/darkserve" -config "$CONF_FILE" -addr ":${PORT}" -daemon -pidfile "$PID_FILE"
+  local rc=$?
+  if [[ $rc -ne 0 ]]; then
+    log "failed to start — last log lines:"
+    tail -n 15 "$LOG_FILE" 2>/dev/null
+    return $rc
+  fi
+  if ! wait_ready; then
+    log "the server did not answer on ${URL}"
+    tail -n 15 "$LOG_FILE" 2>/dev/null
+    return 1
+  fi
+  return 0
+}
+
+do_open() {
+  if ! running; then
+    log "not running yet — starting it first"
+    do_start || return 1
+  fi
+  if open_browser; then
+    log "opened ${URL}"
+    return 0
+  fi
+  log "no browser opener found. Open ${URL} manually."
+  return 1
+}
+
+do_stop() {
+  local pid
+  pid="$(server_pid)" || { log "not running"; return 0; }
+  kill "$pid" 2>/dev/null
+  local i
+  for i in $(seq 1 50); do
+    [[ -d "/proc/$pid" ]] || break
+    sleep 0.2
+  done
+  if [[ -d "/proc/$pid" ]]; then
+    log "did not stop — try: --cli kill"
+    return 1
+  fi
+  rm -f "$PID_FILE"
+  log "stopped"
+  return 0
+}
+
+do_kill() {
+  local pid
+  pid="$(server_pid)" || { log "not running"; return 0; }
+  kill -9 "$pid" 2>/dev/null
+  rm -f "$PID_FILE"
+  log "killed (pid ${pid})"
+  return 0
+}
+
+do_status() {
+  if running; then
+    log "RUNNING — ${URL}"
+  else
+    log "STOPPED"
+  fi
+}
+
+do_log() {
+  if [[ -f "$LOG_FILE" ]]; then
+    tail -n 200 "$LOG_FILE"
+  else
+    log "no log yet"
+  fi
+}
+
+# The yad panel, same idea as the desktop launcher of the regular install.
+run_panel() {
+  local msg code
+  while true; do
+    msg="Status: $(running && echo "RUNNING — ${URL}" || echo "STOPPED")
+Port: ${PORT}   URL: ${URL}
+Data: ${DATA_DIR}"
+    yad "$@" --title="DarkServe — Media Server" --window-icon="applications-internet" \
+      --width=470 --height=210 --center --on-top \
+      --text="$msg" --text-align=center \
+      --button="START SERVER:0" --button="GO TO SERVER:1" --button="STOP:2" \
+      --button="KILL:3" --button="LOG:4" --button="QUIT:5" 2>/dev/null
+    code=$?
+    case "$code" in
+      0) msg="$(do_start)" ;;
+      1) msg="$(do_open)" ;;
+      2) msg="$(do_stop)" ;;
+      3) msg="$(do_kill)" ;;
+      4) msg="$(do_log | tail -n 40)" ;;
+      5|252|1) exit 0 ;;
+    esac
+    if [[ $code -eq 0 || $code -eq 1 || $code -eq 2 || $code -eq 3 ]]; then
+      yad --info --title="DarkServe" --text="$msg" --width=380 --no-buttons --timeout=3 2>/dev/null || true
+    fi
+  done
+}
+
+do_panel() {
+  if ! command -v yad >/dev/null 2>&1; then
+    log "the control panel needs yad (apt install yad)"
+    log "you can also use: --cli start|open|stop|kill|status|log"
+    return 1
+  fi
+  if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+    log "no display found — use: --cli start|open|stop|kill|status|log"
+    return 1
+  fi
+  run_panel
+}
+
+# ------------------------------------------------------------------- main ---
+
+case "${1:-}" in
+  --cli)
+    case "${2:-status}" in
+      start) do_start; rc=$?; if [[ $rc -eq 0 ]]; then copy_tools; fi; exit $rc ;;
+      open)  do_open;  rc=$?; if [[ $rc -eq 0 ]]; then copy_tools; fi; exit $rc ;;
+      stop)  do_stop; exit $? ;;
+      kill)  do_kill; exit $? ;;
+      status) do_status; exit $? ;;
+      log)   do_log; exit $? ;;
+      panel) do_panel; exit $? ;;
+      *) echo "usage: $0 --cli start|open|stop|kill|status|log|panel"; exit 2 ;;
+    esac
+    ;;
+  --panel)
+    do_panel
+    ;;
+  --help|-h)
+    echo "DarkServe — media server"
+    echo
+    echo "  (no argument)   start the server and open it in the browser"
+    echo "  --cli <action>  start | open | stop | kill | status | log | panel"
+    echo "  --panel         the yad control panel"
+    echo
+    echo "  Port:    ${PORT}   (change with DARKSERVE_PORT)"
+    echo "  Data:    ${DATA_DIR}"
+    echo "  Log:     ${LOG_FILE}"
+    ;;
+  *)
+    # Default: make sure the server runs, show it, and then get the tools
+    # out of the AppImage while it is still mounted.
+    do_start && do_open
+    rc=$?
+    if [[ $rc -eq 0 ]]; then copy_tools; fi
+    exit $rc
+    ;;
+esac

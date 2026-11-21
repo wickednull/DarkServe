@@ -1,0 +1,34 @@
+[Desktop Entry]
+Type=Application
+Name=DarkServe
+GenericName=Media Server
+Comment=Start, open or stop the DarkServe media server
+Exec=darkserve
+Icon=darkserve
+Terminal=false
+Categories=AudioVideo;Player;
+Keywords=media;server;streaming;usb;movies;music;iptv;
+StartupNotify=true
+X-AppImage-Name=DarkServe
+X-AppImage-Version=1.0.0
+Actions=start;open;stop;kill;log;
+
+[Desktop Action start]
+Name=Start Server
+Exec=darkserve --cli start
+
+[Desktop Action open]
+Name=Go To Server
+Exec=darkserve --cli open
+
+[Desktop Action stop]
+Name=Stop Server
+Exec=darkserve --cli stop
+
+[Desktop Action kill]
+Name=Kill Server
+Exec=darkserve --cli kill
+
+[Desktop Action log]
+Name=Show Log
+Exec=darkserve --cli log
